@@ -1,0 +1,9 @@
+name = "minidrive"
+main = "worker.js"
+compatibility_date = "2026-01-01"
+
+# Bucket R2 onde os pacotes ficam guardados.
+# Crie antes com:  npx wrangler r2 bucket create minidrive
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "minidrive"

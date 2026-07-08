@@ -1,0 +1,13 @@
+# Cloudflare / Wrangler (cache e estado local)
+.wrangler/
+node_modules/
+dist/
+
+# Segredos / variáveis de ambiente
+.env
+.env.*
+.dev.vars
+
+# Sistema
+.DS_Store
+Thumbs.db
