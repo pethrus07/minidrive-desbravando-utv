@@ -8,6 +8,8 @@
 
 **Projeto real, em produção — não é demo nem exercício de portfólio.** É usado no dia a dia da **Desbravando UTV**, uma operação de expedições de UTV com atuação nacional que movimenta milhões de reais.
 
+**Desbravando UTV:** [site oficial](https://desbravandoutv.com) · Instagram [@desbravando_utv](https://www.instagram.com/desbravando_utv/)
+
 > Acervo de arquivos da operação (pacotes de briefing, artes, entregáveis) num único **Cloudflare Worker + R2**. O Worker serve a interface, valida a chave e organiza cada upload num caminho navegável — a **US$ 0/mês** até 10 GB, porque no R2 o download não custa nada.
 
 ---
