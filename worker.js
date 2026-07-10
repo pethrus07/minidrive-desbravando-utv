@@ -132,7 +132,7 @@ export default {
           itens.push({
             chave: o.key,
             bytes: o.size,
-            enviado_em: o.uploaded,
+            enviado_em: o.customMetadata?.enviado_em || o.uploaded,
             tipo: o.customMetadata?.tipo || o.key.split("/")[1] || "",
             projeto: o.customMetadata?.projeto || o.key.split("/")[2] || "",
           });
@@ -281,6 +281,10 @@ const pastaDe=c=>segsDe(c).slice(0,-1);
 const arqDe=c=>{const p=c.split("/");return p[p.length-1];};
 const urlArq=c=>"/file/"+encodeURIComponent(c)+"?k="+encodeURIComponent(KEY);
 const tiposDe=()=>[...new Set(ITENS.map(i=>i.tipo).filter(Boolean))].sort();
+/* categorias fixas do topo (aparecem sempre, mesmo vazias) e nomes de exibicao */
+const CATS_FIXAS=["expedicoes","artes-avulsas","institucional","briefings"];
+const NOMES={"expedicoes":"Expedições","artes-avulsas":"Artes avulsas","institucional":"Institucional","briefings":"Briefings","documentos":"Documentos","artes":"Artes"};
+const nomePasta=s=>NOMES[s]||titulo(s).replace(/(^|\\s)\\S/g,c=>c.toUpperCase());
 
 function loginView(msg){
   app.innerHTML='<div class="login"><h1>Mini Drive</h1><div class="sub">Acervo de briefings e artes · Desbravando UTV</div>'
@@ -317,15 +321,17 @@ function barHTML(){
 
 function upPanelHTML(){
   let dl='';
-  const sug=[...new Set(["artes-concluidas"].concat(tiposDe()))];
+  const sug=[...new Set(CATS_FIXAS.concat(tiposDe()))];
   for(const t of sug)dl+='<option value="'+esc(t)+'">';
-  const dTipo=PATH[0]||"artes-concluidas";
+  const dTipo=PATH[0]||"expedicoes";
   const dProj=PATH[1]||"";
+  const dSub=PATH.slice(2).join("/")||"";
   return '<div class="up" id="up"><h2>Enviar arquivos</h2>'
-    +'<div class="hint">Para artes concluídas e outros materiais. Arquivos com o mesmo nome, na mesma categoria e projeto, são substituídos. Limite: 100 MB por arquivo. Envio de pasta inteira funciona no computador (no celular, use "Escolher arquivos").</div>'
+    +'<div class="hint">Envie artes, documentos ou zips de briefing. Arquivos com o mesmo nome, na mesma categoria/projeto/subpasta, são substituídos. Limite: 100 MB por arquivo. Enviar uma pasta inteira funciona no computador (no celular, use "Escolher arquivos").</div>'
     +'<div class="uprow">'
-    +'<div><label for="uptipo">Categoria</label><input type="text" id="uptipo" list="tiposdl" placeholder="ex.: artes-concluidas" value="'+esc(dTipo)+'"><datalist id="tiposdl">'+dl+'</datalist></div>'
-    +'<div><label for="upproj">Projeto / pasta</label><input type="text" id="upproj" placeholder="ex.: serra-catarinense" value="'+esc(dProj)+'"></div>'
+    +'<div><label for="uptipo">Categoria</label><input type="text" id="uptipo" list="tiposdl" placeholder="ex.: expedicoes" value="'+esc(dTipo)+'"><datalist id="tiposdl">'+dl+'</datalist></div>'
+    +'<div><label for="upproj">Projeto / expedição</label><input type="text" id="upproj" placeholder="ex.: costa-doce" value="'+esc(dProj)+'"></div>'
+    +'<div><label for="upsub">Subpasta (opcional)</label><input type="text" id="upsub" placeholder="ex.: artes ou documentos" value="'+esc(dSub)+'"></div>'
     +'</div>'
     +'<div class="upbtns">'
     +'<button class="pill" id="upfiles">Escolher arquivos</button>'
@@ -339,8 +345,8 @@ function crumbsHTML(){
   let h='<div class="crumbs"><button data-depth="0">Início</button>';
   for(let d=0;d<PATH.length;d++){
     h+='<span class="sep">/</span>';
-    if(d===PATH.length-1)h+='<span class="cur">'+esc(titulo(PATH[d]))+'</span>';
-    else h+='<button data-depth="'+(d+1)+'">'+esc(titulo(PATH[d]))+'</button>';
+    if(d===PATH.length-1)h+='<span class="cur">'+esc(nomePasta(PATH[d]))+'</span>';
+    else h+='<button data-depth="'+(d+1)+'">'+esc(nomePasta(PATH[d]))+'</button>';
   }
   return h+'</div>';
 }
@@ -348,8 +354,8 @@ function crumbsHTML(){
 function folderCardHTML(nome,info){
   return '<button class="fold" data-nav="'+esc(nome)+'">'
     +'<span class="ic">'+FOLDER_SVG+'</span>'
-    +'<span class="nm">'+esc(titulo(nome))+'</span>'
-    +'<span class="ct">'+info.n+' item(s) · '+fmtB(info.bytes)+'</span></button>';
+    +'<span class="nm">'+esc(nomePasta(nome))+'</span>'
+    +'<span class="ct">'+(info.n?info.n+' item(s) · '+fmtB(info.bytes):'vazia')+'</span></button>';
 }
 
 function fileCardHTML(i,comCaminho){
@@ -357,7 +363,7 @@ function fileCardHTML(i,comCaminho){
   let prev;
   if(ehImg(nome))prev='<div class="prev"><img loading="lazy" decoding="async" src="'+urlArq(i.chave)+'" alt="'+esc(nome)+'" data-zoom="'+esc(i.chave)+'"></div>';
   else prev='<div class="prev"><div class="ico"><span class="ext">'+esc(extDe(nome)||"arq")+'</span></div></div>';
-  const caminho=comCaminho?'<div class="pathlabel">'+esc(pastaDe(i.chave).map(titulo).join(" / "))+'</div>':'';
+  const caminho=comCaminho?'<div class="pathlabel">'+esc(pastaDe(i.chave).map(nomePasta).join(" / "))+'</div>':'';
   return '<div class="file">'+prev
     +'<div class="body"><span class="nm">'+esc(nome)+'</span>'+caminho
     +'<span class="meta">'+fmtD(i.enviado_em)+' · '+fmtB(i.bytes)+'</span>'
@@ -379,6 +385,7 @@ function render(){
       subMap[nx].n++;subMap[nx].bytes+=i.bytes;
     }else arquivos.push(i);
   }
+  if(!PATH.length)for(const c of CATS_FIXAS)if(!subMap[c])subMap[c]={n:0,bytes:0};
   const subs=Object.keys(subMap).sort((a,b)=>a.localeCompare(b,"pt"));
   arquivos.sort((a,b)=>(a.enviado_em<b.enviado_em?1:-1));
   const tot=arquivos.reduce((a,i)=>a+i.bytes,0);
@@ -452,8 +459,9 @@ function abrirZoom(chave){
 
 async function enviar(files){
   if(!files.length||ENVIANDO)return;
-  let tipo=slug(document.getElementById("uptipo").value)||"artes-concluidas";
+  let tipo=slug(document.getElementById("uptipo").value)||"expedicoes";
   let projInput=slug(document.getElementById("upproj").value);
+  const subInput=(document.getElementById("upsub").value||"").split("/").map(slug).filter(Boolean).join("/");
   const lista=document.getElementById("uplist");
   ENVIANDO=true;
   lista.innerHTML="";
@@ -468,12 +476,13 @@ async function enviar(files){
     const f=files[i],st=rows[i];
     if(f.size>LIMITE){st.textContent="acima de 100 MB — não enviado";st.className="st err";continue;}
     /* pasta enviada: 1º nível vira o projeto (se o campo estiver vazio); o resto vira subpastas */
-    let projeto=projInput,sub="";
+    let projeto=projInput,sub=subInput;
     if(f.webkitRelativePath){
       const p=f.webkitRelativePath.split("/");
       const dirs=p.slice(0,-1);
       if(!projeto&&dirs.length){projeto=slug(dirs.shift());}
-      sub=dirs.map(slug).filter(Boolean).join("/");
+      const relSub=dirs.map(slug).filter(Boolean).join("/");
+      sub=[subInput,relSub].filter(Boolean).join("/");
     }
     if(!projeto)projeto="geral";
     st.textContent="enviando…";
