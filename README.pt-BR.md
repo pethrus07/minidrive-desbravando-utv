@@ -78,4 +78,4 @@ Diagramas em [docs/arquitetura/](docs/arquitetura/).
 
 ## Licença
 
-Todos os direitos reservados. Código publicado só para consulta.
+Todos os direitos reservados. Publicado como portfólio; não licenciado para reuso. Veja o arquivo [LICENSE](LICENSE).

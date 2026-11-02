@@ -78,4 +78,4 @@ Diagrams in [docs/arquitetura/](docs/arquitetura/).
 
 ## License
 
-All rights reserved. Code published for reference only.
+All rights reserved. Published as portfolio; not licensed for reuse. See [LICENSE](LICENSE).
