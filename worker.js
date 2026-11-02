@@ -17,17 +17,30 @@
      - &sub=pasta/subpasta preserva a estrutura de uma pasta enviada
 
    Autenticação: chave única compartilhada (secret DRIVE_KEY),
-   enviada no header "x-drive-key" ou no parâmetro "?k=".
+   enviada SÓ no header "x-drive-key". Até 01/11/2026 também valia
+   "?k=" na URL, que fica no histórico do navegador e em log.
+   CORS: só as origens de ORIGENS recebem Access-Control-Allow-Origin.
 
    Organização no bucket:
      ANO/TIPO/PROJETO[/SUBPASTAS]/[DATA-HORA_]ARQUIVO
    ============================================================ */
 
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
-  "Access-Control-Allow-Headers": "content-type,x-drive-key",
-};
+/* Quem chama de outro domínio: o Estúdio de Briefing (Pages e GitHub Pages). A própria
+   interface é servida por este Worker, então é mesma origem e não precisa de CORS. */
+const ORIGENS = new Set([
+  "https://estudio-briefing.pages.dev",
+  "https://pethrus07.github.io",
+]);
+function corsPara(request) {
+  const origem = request.headers.get("origin") || "";
+  if (!ORIGENS.has(origem)) return { "Vary": "Origin" };
+  return {
+    "Access-Control-Allow-Origin": origem,
+    "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
+    "Access-Control-Allow-Headers": "content-type,x-drive-key",
+    "Vary": "Origin",
+  };
+}
 
 const MIME = {
   zip: "application/zip", pdf: "application/pdf",
@@ -47,13 +60,13 @@ const MIME = {
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "content-type": "application/json; charset=utf-8", ...CORS },
+    headers: { "content-type": "application/json; charset=utf-8" },
   });
 }
 
 function authorized(request, url, env) {
-  const key = request.headers.get("x-drive-key") || url.searchParams.get("k") || "";
-  return env.DRIVE_KEY && key === env.DRIVE_KEY;
+  const key = request.headers.get("x-drive-key") || "";
+  return !!env.DRIVE_KEY && key.length > 0 && key === env.DRIVE_KEY;
 }
 
 function safeSeg(s, fallback) {
@@ -82,10 +95,19 @@ function contentTypeFor(request, arquivo) {
 
 export default {
   async fetch(request, env) {
+    const res = await tratar(request, env);
+    const out = new Response(res.body, res);
+    for (const [k, v] of Object.entries(corsPara(request))) out.headers.set(k, v);
+    return out;
+  },
+};
+
+async function tratar(request, env) {
+  {
     const url = new URL(request.url);
     const path = url.pathname;
 
-    if (request.method === "OPTIONS") return new Response(null, { headers: CORS });
+    if (request.method === "OPTIONS") return new Response(null, { status: 204 });
 
     /* ---------- interface ---------- */
     if (path === "/" && request.method === "GET") {
@@ -156,8 +178,7 @@ export default {
         return new Response(obj.body, {
           headers: {
             "content-type": obj.httpMetadata?.contentType || "application/octet-stream",
-            "content-disposition": `attachment; filename="${nome}"`,
-            ...CORS,
+            "content-disposition": `attachment; filename="${nome.replace(/"/g, "")}"`,
           },
         });
       }
@@ -168,8 +189,8 @@ export default {
     }
 
     return json({ erro: "rota desconhecida" }, 404);
-  },
-};
+  }
+}
 
 /* ============================================================
    Interface do Mini Drive — identidade Desbravando (P&B,
@@ -279,7 +300,36 @@ const ehImg=n=>IMG.includes(extDe(n));
 const segsDe=c=>c.split("/").slice(1);
 const pastaDe=c=>segsDe(c).slice(0,-1);
 const arqDe=c=>{const p=c.split("/");return p[p.length-1];};
-const urlArq=c=>"/file/"+encodeURIComponent(c)+"?k="+encodeURIComponent(KEY);
+/* Miniatura e download pedem o arquivo com o cabeçalho x-drive-key e usam um blob local.
+   Link com ?k= deixava a chave no histórico do navegador. */
+const BLOBS=new Map();
+async function blobArq(c){
+  if(BLOBS.has(c))return BLOBS.get(c);
+  const r=await fetch("/file/"+encodeURIComponent(c),{headers:{"x-drive-key":KEY}});
+  if(!r.ok)throw new Error("HTTP "+r.status);
+  const u=URL.createObjectURL(await r.blob());
+  BLOBS.set(c,u);
+  return u;
+}
+function carregarMiniaturas(raiz){
+  raiz.querySelectorAll("img[data-arq]").forEach(async im=>{
+    const c=im.getAttribute("data-arq");im.removeAttribute("data-arq");
+    try{im.src=await blobArq(c);}catch(e){im.alt="não foi possível carregar";}
+  });
+}
+async function baixarArq(c){
+  try{
+    const u=await blobArq(c);
+    const a=document.createElement("a");a.href=u;a.download=arqDe(c);
+    document.body.appendChild(a);a.click();a.remove();
+  }catch(e){alert("Não foi possível baixar.");}
+}
+document.addEventListener("click",e=>{
+  const b=e.target.closest("[data-baixar]");
+  if(!b)return;
+  e.preventDefault();
+  baixarArq(b.getAttribute("data-baixar"));
+});
 const tiposDe=()=>[...new Set(ITENS.map(i=>i.tipo).filter(Boolean))].sort();
 /* categorias fixas do topo (aparecem sempre, mesmo vazias) e nomes de exibicao */
 const CATS_FIXAS=["expedicoes","artes-avulsas","institucional","briefings"];
@@ -361,13 +411,13 @@ function folderCardHTML(nome,info){
 function fileCardHTML(i,comCaminho){
   const nome=arqDe(i.chave);
   let prev;
-  if(ehImg(nome))prev='<div class="prev"><img loading="lazy" decoding="async" src="'+urlArq(i.chave)+'" alt="'+esc(nome)+'" data-zoom="'+esc(i.chave)+'"></div>';
+  if(ehImg(nome))prev='<div class="prev"><img loading="lazy" decoding="async" data-arq="'+esc(i.chave)+'" alt="'+esc(nome)+'" data-zoom="'+esc(i.chave)+'"></div>';
   else prev='<div class="prev"><div class="ico"><span class="ext">'+esc(extDe(nome)||"arq")+'</span></div></div>';
   const caminho=comCaminho?'<div class="pathlabel">'+esc(pastaDe(i.chave).map(nomePasta).join(" / "))+'</div>':'';
   return '<div class="file">'+prev
     +'<div class="body"><span class="nm">'+esc(nome)+'</span>'+caminho
     +'<span class="meta">'+fmtD(i.enviado_em)+' · '+fmtB(i.bytes)+'</span>'
-    +'<span class="acts"><a class="abtn" href="'+urlArq(i.chave)+'">Baixar</a>'
+    +'<span class="acts"><a class="abtn" href="#" data-baixar="'+esc(i.chave)+'">Baixar</a>'
     +'<button class="abtn del" data-del="'+esc(i.chave)+'">Remover</button></span></div></div>';
 }
 
@@ -422,6 +472,7 @@ function renderBusca(){
 }
 
 function wireBase(){
+  carregarMiniaturas(app);
   const bs=document.getElementById("busca");
   bs.addEventListener("input",e=>{FILTRO=e.target.value.toLowerCase();render();});
   document.getElementById("uptog").addEventListener("click",()=>{if(ENVIANDO)return;UP_ABERTO=!UP_ABERTO;render();});
@@ -445,9 +496,9 @@ function wireBase(){
 function abrirZoom(chave){
   const nome=arqDe(chave);
   const d=document.createElement("div");d.className="lb";
-  d.innerHTML='<img src="'+urlArq(chave)+'" alt="'+esc(nome)+'">'
+  d.innerHTML='<img data-arq="'+esc(chave)+'" alt="'+esc(nome)+'">'
     +'<div class="lbbar"><span class="lbname">'+esc(nome)+'</span>'
-    +'<a class="abtn" href="'+urlArq(chave)+'">Baixar</a>'
+    +'<a class="abtn" href="#" data-baixar="'+esc(chave)+'">Baixar</a>'
     +'<button class="pill" id="lbx">Fechar</button></div>';
   const fechar=()=>{d.remove();document.removeEventListener("keydown",onk);};
   const onk=e=>{if(e.key==="Escape")fechar();};
@@ -455,6 +506,7 @@ function abrirZoom(chave){
   d.querySelector("#lbx").addEventListener("click",fechar);
   document.addEventListener("keydown",onk);
   document.body.appendChild(d);
+  carregarMiniaturas(d);
 }
 
 async function enviar(files){

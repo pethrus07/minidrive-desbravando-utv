@@ -79,3 +79,21 @@ test("nome de pasta com ../ não escapa do caminho", async () => {
   const { chave } = await up.json();
   assert.ok(!chave.includes(".."), chave);
 });
+
+/* ---------- branch revisao-2026-11 ---------- */
+
+test("a chave na URL (?k=) não vale mais; só o cabeçalho", async () => {
+  assert.equal((await fetch(BASE + "/list?k=" + CHAVE)).status, 401);
+  assert.equal((await fetch(BASE + "/list", { headers: comChave })).status, 200);
+  assert.doesNotMatch(await (await fetch(BASE + "/")).text(), /\?k="\+/, "a interface não monta mais link com ?k=");
+});
+
+test("CORS só para as origens conhecidas", async () => {
+  const doEstudio = await fetch(BASE + "/list", { headers: { ...comChave, origin: "https://estudio-briefing.pages.dev" } });
+  assert.equal(doEstudio.headers.get("access-control-allow-origin"), "https://estudio-briefing.pages.dev");
+  const deFora = await fetch(BASE + "/list", { headers: { ...comChave, origin: "https://exemplo.com" } });
+  assert.equal(deFora.headers.get("access-control-allow-origin"), null);
+  const pre = await fetch(BASE + "/upload", { method: "OPTIONS", headers: { origin: "https://pethrus07.github.io" } });
+  assert.equal(pre.status, 204);
+  assert.equal(pre.headers.get("access-control-allow-origin"), "https://pethrus07.github.io");
+});
