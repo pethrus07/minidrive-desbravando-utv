@@ -1,6 +1,6 @@
 # Mini Drive · Desbravando UTV
 
-Português · [English](README.md)
+[English](README.md) · Português
 
 Acervo de arquivos da Desbravando UTV, operadora de expedições off-road de UTV. Briefings,
 artes e documentos ficam num bucket R2 da Cloudflare, navegável por pastas, atrás de uma chave
@@ -10,17 +10,11 @@ compartilhada. Um único Worker serve a interface e a API.
 
 Em produção desde julho de 2026 em `minidrive.desbravando-utv.workers.dev`. Pouca manutenção.
 
-## O problema que resolve
+## O problema
 
 O Estúdio de Briefing gera um pacote ZIP a cada expedição. Esses pacotes, e as artes prontas,
 ficavam na pasta de downloads de quem gerou. O Mini Drive guarda tudo num lugar só, organizado
 por expedição, para baixar de qualquer aparelho.
-
-## Stack
-
-- Cloudflare Worker (`worker.js`), JavaScript puro, sem build
-- Cloudflare R2 para os arquivos (binding `BUCKET`, bucket `minidrive`)
-- A interface é uma string HTML dentro do `worker.js`
 
 ## Como funciona
 
@@ -33,6 +27,12 @@ por expedição, para baixar de qualquer aparelho.
 
 Rotas: `GET /` (interface), `POST /upload?tipo&projeto&arquivo[&sub][&direto=1]`,
 `GET /list`, `GET /file/<chave>`, `DELETE /file/<chave>`.
+
+## Stack
+
+- Cloudflare Worker (`worker.js`), JavaScript puro, sem build
+- Cloudflare R2 para os arquivos (binding `BUCKET`, bucket `minidrive`)
+- A interface é uma string HTML dentro do `worker.js`
 
 ## Rodar localmente
 
@@ -53,7 +53,7 @@ npm test
 Sobe o `wrangler dev` com um R2 local temporário e confere: a página abre, a chave é exigida,
 e enviar, listar, baixar e remover funcionam de ponta a ponta.
 
-## Estrutura de pastas
+## Pastas
 
 | Caminho | O que é |
 |---|---|

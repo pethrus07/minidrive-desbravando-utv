@@ -1,6 +1,6 @@
 # Mini Drive · Desbravando UTV
 
-[Português](README.pt-BR.md) · English
+English · [Português](README.pt-BR.md)
 
 File archive for Desbravando UTV, an off-road UTV expedition operator. Design briefs, artwork
 and documents live in one Cloudflare R2 bucket, browsable by folder, behind a shared key.
@@ -10,17 +10,11 @@ One Worker serves both the web interface and the API.
 
 In production since July 2026 at `minidrive.desbravando-utv.workers.dev`. Low maintenance.
 
-## The problem it solves
+## The problem
 
 The briefing tool generates a ZIP package for every expedition. Those packages, and the
 finished artwork, used to sit in the downloads folder of whoever made them. The Mini Drive
 keeps them in one place, organized by expedition, and downloadable from any device.
-
-## Stack
-
-- Cloudflare Worker (`worker.js`), plain JavaScript, no build step
-- Cloudflare R2 for storage (binding `BUCKET`, bucket `minidrive`)
-- The interface is an HTML string inside `worker.js`
 
 ## How it works
 
@@ -33,6 +27,12 @@ keeps them in one place, organized by expedition, and downloadable from any devi
 
 Routes: `GET /` (interface), `POST /upload?tipo&projeto&arquivo[&sub][&direto=1]`,
 `GET /list`, `GET /file/<key>`, `DELETE /file/<key>`.
+
+## Stack
+
+- Cloudflare Worker (`worker.js`), plain JavaScript, no build step
+- Cloudflare R2 for storage (binding `BUCKET`, bucket `minidrive`)
+- The interface is an HTML string inside `worker.js`
 
 ## Run locally
 
@@ -53,7 +53,7 @@ npm test
 Starts `wrangler dev` with a temporary local R2 and checks: the page opens, the key is
 required, and upload, list, download and delete work end to end.
 
-## Folder structure
+## Folders
 
 | Path | What it is |
 |---|---|
